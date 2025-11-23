@@ -1,0 +1,17 @@
+dist/
+dist-newstyle/
+
+cabal.project.local
+cabal.project.local~
+
+*.o
+*.hi
+*.hie
+*.dyn_o
+*.dyn_hi
+
+.stack-work/
+
+*.swp
+*.swo
+*~
