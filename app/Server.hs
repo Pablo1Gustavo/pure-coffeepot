@@ -1,11 +1,28 @@
 {-# LANGUAGE OverloadedStrings #-}
 
+module Server where
+
 import Coffeepot
 import Web.Scotty
 import Network.HTTP.Types.Status
 import Data.Text.Lazy (Text)
 import qualified Data.Text.Lazy as TL
 import Control.Monad (unless)
+
+data SafeNature
+    = SafeYes
+    | SafeNo
+    | ConditionalSafe Text
+    deriving (Eq)
+
+instance Show SafeNature where
+    show SafeYes = "yes"
+    show SafeNo = "no"
+    show (ConditionalSafe condition) = "if-" ++ TL.unpack condition
+
+putSafeHeader :: SafeNature -> ActionM ()
+putSafeHeader safeNature =
+    setHeader "Safe" (TL.pack $ show safeNature)
 
 coffeepotErrorToResponse :: CoffeepotError -> (Status, Text)
 coffeepotErrorToResponse err = case err of
@@ -30,6 +47,12 @@ coffeepotErrorToResponse err = case err of
         , TL.pack $ "Insufficient coffee: need " ++ show amount ++ " g more"
         )
 
+sendErrorResponse :: CoffeepotError -> ActionM ()
+sendErrorResponse err = do
+    putSafeHeader SafeYes
+    status errorStatus
+    text errorMessage
+    where (errorStatus, errorMessage) = coffeepotErrorToResponse err
 
 parseAcceptAdditions :: Text -> Maybe [AdditionType]
 parseAcceptAdditions headerValue =
@@ -90,25 +113,9 @@ parseAdditionType additionText =
 isCoffeepotContentType :: Maybe Text -> Bool
 isCoffeepotContentType = (== Just "message/coffeepot")
 
-requireCoffeepotContentTypePure :: ActionM ()
-requireCoffeepotContentTypePure = do
+requireCoffeepotContentTypeHeader :: ActionM ()
+requireCoffeepotContentTypeHeader = do
     contentType <- header "Content-Type"
     unless (isCoffeepotContentType contentType) $ do
         status unsupportedMediaType415
         text "Unsupported Media Type: Expected Content-Type: message/coffeepot"
-
-data SafeNature
-    = SafeYes
-    | SafeNo
-    | ConditionalSafe Text
-    deriving (Show, Eq)
-
-parseSafeHeader :: Text -> Maybe SafeNature
-parseSafeHeader headerValue
-    | normalized == "yes" = Just SafeYes
-    | normalized == "no" = Just SafeNo
-    | TL.isPrefixOf "if-" normalized = Just (ConditionalSafe (TL.drop 3 normalized))
-    | otherwise = Nothing
-  where
-    normalized = TL.toLower (TL.strip headerValue)
-
