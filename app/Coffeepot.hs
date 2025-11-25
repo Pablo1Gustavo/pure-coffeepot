@@ -2,7 +2,15 @@ module Coffeepot where
 
 data MilkType
   = Cream | HalfAndHalf | WholeMilk | PartSkim | Skim | NonDairy
-  deriving (Show, Eq)
+  deriving (Eq)
+
+instance Show MilkType where
+  show Cream       = "Cream"
+  show HalfAndHalf = "Half-and-half"
+  show WholeMilk   = "Whole-milk"
+  show PartSkim    = "Part-Skim"
+  show Skim        = "Skim"
+  show NonDairy    = "Non-Dairy"
 
 data SyrupType
   = Vanilla | Almond | Raspberry | Chocolate
@@ -51,7 +59,14 @@ data Coffeepot = Coffeepot
   , waterLevel  :: !Int
   , coffeeLevel :: !Int
   , supported   :: [AdditionCapability]
-  } deriving (Show, Eq)
+  } deriving (Eq)
+
+instance Show Coffeepot where
+  show pot = "state=" ++ show (state pot) ++ 
+             ",temperature=" ++ show (temperature pot) ++
+             ",waterLevel=" ++ show (waterLevel pot) ++
+             ",coffeeLevel=" ++ show (coffeeLevel pot) ++
+             ",supported=" ++ show (supported pot)
 
 additionCategory :: AdditionType -> Category
 additionCategory additionType =
@@ -94,18 +109,6 @@ allowSyrup = AllowSpecific . AddSyrup
 allowCategory :: Category -> AdditionCapability
 allowCategory = AllowCategory
 
-initialCoffeepot :: Coffeepot
-initialCoffeepot = Coffeepot
-  { state       = Idle
-  , temperature = 20.0
-  , waterLevel  = 200
-  , coffeeLevel = 20
-  , supported   =
-      [ AllowCategory Milk
-      , AllowSpecific (AddSyrup Vanilla)
-      ]
-  }
-
 data CoffeepotError
     = UnsupportedAddition AdditionType
     | ActionNotAllowedInState State
@@ -146,15 +149,15 @@ calculateTotalWater additions =
     waterPerCup = 100
     waterPerAddition = 20
 
-validateResources :: Coffeepot -> Int -> Either CoffeepotError ()
-validateResources pot totalWater
+validateResources :: Coffeepot -> Either CoffeepotError Coffeepot
+validateResources pot
   | lackWater > 0   = Left (InsufficientWater lackWater)
   | lackCoffee > 0  = Left (InsufficientCoffee lackCoffee)
-  | otherwise       = Right ()
+  | otherwise       = Right pot
   where
     currentWater = waterLevel pot
     currentCoffee = coffeeLevel pot
-    lackWater = totalWater - currentWater
+    lackWater = coffeePerCup - currentWater
     lackCoffee = coffeePerCup - currentCoffee
 
 brewStart :: Coffeepot -> [AdditionType] -> Either CoffeepotError Coffeepot
@@ -165,12 +168,12 @@ brewStart coffeepot additions =
     Idle    -> do
       checkAdditionsSupported coffeepot additions
       let totalWater = calculateTotalWater additions
-      validateResources coffeepot totalWater
-      Right coffeepot
-        { state = Brewing
-        , waterLevel = waterLevel coffeepot - totalWater
-        , coffeeLevel = coffeeLevel coffeepot - coffeePerCup
-        }
+      let updatedPot = coffeepot
+            { state = Brewing
+            , waterLevel = waterLevel coffeepot - totalWater
+            , coffeeLevel = coffeeLevel coffeepot - coffeePerCup
+            }
+      validateResources updatedPot
 
 brewStop :: Coffeepot -> CoffeepotResult
 brewStop coffeepot =
