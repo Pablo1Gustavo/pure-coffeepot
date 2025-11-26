@@ -62,7 +62,7 @@ executable pure-coffeepot
     main-is:          Main.hs
 
     -- Modules included in this executable, other than Main.
-    -- other-modules:
+    other-modules: Coffeepot, Server
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
@@ -70,11 +70,11 @@ executable pure-coffeepot
     -- Other library packages from which modules are imported.
     build-depends:
         base ^>=4.18.3.0,
-        scotty ^>=0.22,
+        wai ^>=3.2,
+        warp ^>=3.3,
         http-types ^>=0.12,
         text,
-        bytestring,
-        transformers
+        bytestring
 
     -- Directories containing source files.
     hs-source-dirs:   app

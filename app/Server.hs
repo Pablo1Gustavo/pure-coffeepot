@@ -3,11 +3,13 @@
 module Server where
 
 import Coffeepot
-import Web.Scotty
 import Network.HTTP.Types.Status
-import Data.Text.Lazy (Text)
-import qualified Data.Text.Lazy as TL
-import Control.Monad (unless)
+import Network.HTTP.Types.Header
+import Network.Wai
+import Data.Text (Text)
+import qualified Data.Text as T
+import qualified Data.Text.Encoding as TE
+import qualified Data.ByteString.Lazy as LBS
 
 data SafeNature
     = SafeYes
@@ -18,21 +20,21 @@ data SafeNature
 instance Show SafeNature where
     show SafeYes = "yes"
     show SafeNo = "no"
-    show (ConditionalSafe condition) = "if-" ++ TL.unpack condition
+    show (ConditionalSafe condition) = "if-" ++ T.unpack condition
 
-putSafeHeader :: SafeNature -> ActionM ()
-putSafeHeader safeNature =
-    setHeader "Safe" (TL.pack $ show safeNature)
+safeHeader :: SafeNature -> Header
+safeHeader safeNature =
+    ("Safe", TE.encodeUtf8 . T.pack $ show safeNature)
 
 coffeepotErrorToResponse :: CoffeepotError -> (Status, Text)
 coffeepotErrorToResponse err = case err of
     UnsupportedAddition additionType ->
         ( badRequest400
-        , TL.pack $ "Unsupported addition: " ++ show additionType
+        , T.pack $ "Unsupported addition: " ++ show additionType
         )
     ActionNotAllowedInState state ->
         ( conflict409
-        , TL.pack $ "Action not allowed in state: " ++ show state
+        , T.pack $ "Action not allowed in state: " ++ show state
         )
     AlreadyInState ->
         ( conflict409
@@ -40,18 +42,16 @@ coffeepotErrorToResponse err = case err of
         )
     InsufficientWater amount ->
         ( serviceUnavailable503
-        , TL.pack $ "Insufficient water: need " ++ show amount ++ " ml more"
+        , T.pack $ "Insufficient water: need " ++ show amount ++ " ml more"
         )
     InsufficientCoffee amount ->
         ( serviceUnavailable503
-        , TL.pack $ "Insufficient coffee: need " ++ show amount ++ " g more"
+        , T.pack $ "Insufficient coffee: need " ++ show amount ++ " g more"
         )
 
-sendErrorResponse :: CoffeepotError -> ActionM ()
-sendErrorResponse err = do
-    putSafeHeader SafeYes
-    status errorStatus
-    text errorMessage
+errorResponse :: CoffeepotError -> Response
+errorResponse err = 
+    responseLBS errorStatus [safeHeader SafeYes] (LBS.fromStrict . TE.encodeUtf8 $ errorMessage)
     where (errorStatus, errorMessage) = coffeepotErrorToResponse err
 
 parseAcceptAdditions :: Text -> Maybe [AdditionType]
@@ -68,17 +68,17 @@ parseAcceptAdditions headerValue =
 
 splitByComma :: Text -> [Text]
 splitByComma textValue = 
-    map TL.strip (TL.splitOn "," textValue)
+    map T.strip (T.splitOn "," textValue)
 
 parseAdditionItem :: Text -> Maybe AdditionType
 parseAdditionItem item =
-    let withoutParams = TL.takeWhile (/= ';') item
-        normalized = TL.strip withoutParams
+    let withoutParams = T.takeWhile (/= ';') item
+        normalized = T.strip withoutParams
     in parseAdditionType normalized
 
 parseAdditionType :: Text -> Maybe AdditionType
 parseAdditionType additionText =
-    case TL.toLower additionText of
+    case T.toLower (T.strip additionText) of
         "*"            -> Just AddAll
         -- Milk types
         "cream"        -> Just (AddMilk Cream)
@@ -113,9 +113,10 @@ parseAdditionType additionText =
 isCoffeepotContentType :: Maybe Text -> Bool
 isCoffeepotContentType = (== Just "message/coffeepot")
 
-requireCoffeepotContentTypeHeader :: ActionM ()
-requireCoffeepotContentTypeHeader = do
-    contentType <- header "Content-Type"
-    unless (isCoffeepotContentType contentType) $ do
-        status unsupportedMediaType415
-        text "Unsupported Media Type: Expected Content-Type: message/coffeepot"
+checkCoffeepotContentType :: Request -> Either Response ()
+checkCoffeepotContentType req =
+    case lookup "Content-Type" (requestHeaders req) of
+        Nothing -> Left $ responseLBS unsupportedMediaType415 [] "Missing Content-Type header"
+        Just contentType 
+            | contentType == "message/coffeepot" -> Right ()
+            | otherwise -> Left $ responseLBS unsupportedMediaType415 [] "Unsupported Media Type: Expected Content-Type: message/coffeepot"
