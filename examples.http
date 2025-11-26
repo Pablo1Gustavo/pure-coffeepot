@@ -1,0 +1,40 @@
+@baseUrl = http://localhost:3000
+@contentType = message/coffeepot
+
+###
+
+### GET pot status
+GET {{baseUrl}}/pot-1
+Content-Type: {{contentType}}
+
+###
+
+### Start brewing
+POST {{baseUrl}}/pot-1
+Content-Type: {{contentType}}
+
+start
+
+###
+
+### Stop brewing
+POST {{baseUrl}}/pot-1
+Content-Type: {{contentType}}
+
+stop
+
+###
+
+### Start brewing with BREW method
+BREW {{baseUrl}}/pot-1
+Content-Type: {{contentType}}
+
+start
+
+###
+
+### Teapot endpoint (418)
+GET {{baseUrl}}/teapot-1
+Content-Type: {{contentType}}
+
+###
