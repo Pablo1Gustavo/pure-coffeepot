@@ -86,29 +86,6 @@ supports coffeepot additionType =
   where
     capabilities = supported coffeepot
 
-addSupport :: AdditionCapability -> Coffeepot -> Coffeepot
-addSupport capability coffeepot =
-    if capability `elem` supported coffeepot
-        then coffeepot
-        else coffeepot {
-            supported = capability : supported coffeepot
-        }
-
-removeSupport :: AdditionCapability -> Coffeepot -> Coffeepot
-removeSupport capability coffeepot =
-    coffeepot {
-        supported = filter (/= capability) (supported coffeepot)
-    }
-
-allowMilk :: MilkType -> AdditionCapability
-allowMilk = AllowSpecific . AddMilk
-
-allowSyrup :: SyrupType -> AdditionCapability
-allowSyrup = AllowSpecific . AddSyrup
-
-allowCategory :: Category -> AdditionCapability
-allowCategory = AllowCategory
-
 data CoffeepotError
     = UnsupportedAddition AdditionType
     | ActionNotAllowedInState State
@@ -117,7 +94,35 @@ data CoffeepotError
     | InsufficientCoffee Int
   deriving (Show, Eq)
 
+type CoffeepotCheck = Either CoffeepotError ()
 type CoffeepotResult = Either CoffeepotError Coffeepot
+
+coffeePerCup :: Int
+coffeePerCup = 10
+
+calculateTotalWater :: [AdditionType] -> Int
+calculateTotalWater additions =
+  waterPerCup + (length additions * waterPerAddition)
+  where
+    waterPerCup = 100
+    waterPerAddition = 20
+
+checkAdditionsSupported :: Coffeepot -> [AdditionType] -> CoffeepotCheck
+checkAdditionsSupported pot additions =
+  case filter (not . supports pot) additions of
+    []                      -> Right ()
+    (unsupported : _)       -> Left (UnsupportedAddition unsupported)
+
+validateResources :: Coffeepot -> CoffeepotCheck
+validateResources pot
+  | lackWater > 0   = Left (InsufficientWater lackWater)
+  | lackCoffee > 0  = Left (InsufficientCoffee lackCoffee)
+  | otherwise       = Right ()
+  where
+    currentWater = waterLevel pot
+    currentCoffee = coffeeLevel pot
+    lackWater = coffeePerCup - currentWater
+    lackCoffee = coffeePerCup - currentCoffee
 
 powerOn :: Coffeepot -> CoffeepotResult
 powerOn coffeepot =
@@ -132,35 +137,13 @@ powerOff coffeepot =
     Brewing -> Left (ActionNotAllowedInState Brewing)
     Idle    -> Right coffeepot { state = Off }
 
+brewStop :: Coffeepot -> CoffeepotResult
+brewStop coffeepot =
+  case state coffeepot of
+    Brewing -> Right coffeepot { state = Idle }
+    currentState -> Left (ActionNotAllowedInState currentState)
 
-coffeePerCup :: Int
-coffeePerCup = 10
-
-checkAdditionsSupported :: Coffeepot -> [AdditionType] -> Either CoffeepotError ()
-checkAdditionsSupported pot additions =
-  case filter (not . supports pot) additions of
-    []                      -> Right ()
-    (unsupported : _)       -> Left (UnsupportedAddition unsupported)
-
-calculateTotalWater :: [AdditionType] -> Int
-calculateTotalWater additions =
-  waterPerCup + (length additions * waterPerAddition)
-  where
-    waterPerCup = 100
-    waterPerAddition = 20
-
-validateResources :: Coffeepot -> Either CoffeepotError Coffeepot
-validateResources pot
-  | lackWater > 0   = Left (InsufficientWater lackWater)
-  | lackCoffee > 0  = Left (InsufficientCoffee lackCoffee)
-  | otherwise       = Right pot
-  where
-    currentWater = waterLevel pot
-    currentCoffee = coffeeLevel pot
-    lackWater = coffeePerCup - currentWater
-    lackCoffee = coffeePerCup - currentCoffee
-
-brewStart :: Coffeepot -> [AdditionType] -> Either CoffeepotError Coffeepot
+brewStart :: Coffeepot -> [AdditionType] -> CoffeepotResult
 brewStart coffeepot additions =
   case state coffeepot of
     Off     -> Left (ActionNotAllowedInState Off)
@@ -174,9 +157,4 @@ brewStart coffeepot additions =
             , coffeeLevel = coffeeLevel coffeepot - coffeePerCup
             }
       validateResources updatedPot
-
-brewStop :: Coffeepot -> CoffeepotResult
-brewStop coffeepot =
-  case state coffeepot of
-    Brewing -> Right coffeepot { state = Idle }
-    currentState -> Left (ActionNotAllowedInState currentState)
+      return updatedPot
