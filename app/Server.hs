@@ -10,6 +10,7 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import qualified Data.ByteString.Lazy as LBS
+import Data.Maybe (catMaybes)
 
 data SafeNature
     = SafeYes
@@ -54,28 +55,6 @@ errorResponse err =
     responseLBS errorStatus [safeHeader SafeYes] (LBS.fromStrict . TE.encodeUtf8 $ errorMessage)
     where (errorStatus, errorMessage) = coffeepotErrorToResponse err
 
-parseAcceptAdditions :: Text -> Maybe [AdditionType]
-parseAcceptAdditions headerValue =
-    let items = splitByComma headerValue
-        parsed = map parseAdditionItem items
-        maybeList = sequence parsed
-    in case maybeList of
-        Nothing -> Nothing
-        Just additionList -> 
-            if AddAll `elem` additionList
-            then Just [AddAll]
-            else Just additionList
-
-splitByComma :: Text -> [Text]
-splitByComma textValue = 
-    map T.strip (T.splitOn "," textValue)
-
-parseAdditionItem :: Text -> Maybe AdditionType
-parseAdditionItem item =
-    let withoutParams = T.takeWhile (/= ';') item
-        normalized = T.strip withoutParams
-    in parseAdditionType normalized
-
 parseAdditionType :: Text -> Maybe AdditionType
 parseAdditionType additionText =
     case T.toLower (T.strip additionText) of
@@ -109,6 +88,24 @@ parseAdditionType additionText =
         "aquavit"      -> Just (AddAlcohol Aquavit)
         -- Unrecognized
         _              -> Nothing
+
+parseAdditionItem :: Text -> Maybe AdditionType
+parseAdditionItem item =
+    let withoutParams = T.takeWhile (/= ';') item
+        normalized = T.strip withoutParams
+    in parseAdditionType normalized
+
+splitByComma :: Text -> [Text]
+splitByComma textValue = 
+    map T.strip (T.splitOn "," textValue)
+
+parseAcceptAdditions :: Text -> [AdditionType]
+parseAcceptAdditions headerValue =
+    if AddAll `elem` additionList then [AddAll] else additionList
+    where
+        items = splitByComma headerValue
+        parsed = map parseAdditionItem items
+        additionList = catMaybes parsed
 
 isCoffeepotContentType :: Maybe Text -> Bool
 isCoffeepotContentType = (== Just "message/coffeepot")
