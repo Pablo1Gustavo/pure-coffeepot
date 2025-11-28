@@ -18,7 +18,7 @@ exampleCoffeepot = Coffeepot
   , temperature = 85.0
   , waterLevel = 500
   , coffeeLevel = 100
-  , supported = [AllowAll]
+  , supported = [AllowCategory Milk]
   }
 
 main :: IO ()
@@ -27,7 +27,7 @@ main = do
   putStrLn "Starting HTCPCP Server on port 3000..."
   run 3000 $ contentTypeMiddleware $ app coffeepotVar
 
-contentTypeMiddleware :: Application -> Application
+contentTypeMiddleware :: Middleware
 contentTypeMiddleware nextApp req respond = 
   case checkCoffeepotContentType req of
     Left errorResp -> respond errorResp
@@ -45,15 +45,17 @@ app coffeepotVar req respond = do
         _                   -> respond $ responseLBS notFound404 [] "Not Found"
 
 
-handleBrew :: MVar Coffeepot -> Request -> (Response -> IO ResponseReceived) -> IO ResponseReceived
+handleBrew :: MVar Coffeepot -> Application
 handleBrew coffeepotVar req respond = do
   bodyLBS <- lazyRequestBody req
   let bodyText = TE.decodeUtf8 . LBS.toStrict $ bodyLBS
+      additions = maybe [] (parseAcceptAdditions . TE.decodeUtf8) $ 
+                        lookup "Accept-Additions" (requestHeaders req)
   currentPot <- readMVar coffeepotVar
   
   case T.unpack bodyText of
     "start" -> do
-      case brewStart currentPot [] of
+      case brewStart currentPot additions of
         Left err -> respond (errorResponse err)
         Right newPot -> do
           _ <- swapMVar coffeepotVar newPot
@@ -68,12 +70,12 @@ handleBrew coffeepotVar req respond = do
           
     _ -> respond $ responseLBS badRequest400 [] "Invalid command. Expected 'start' or 'stop'"
 
-handleInfo :: MVar Coffeepot -> Request -> (Response -> IO ResponseReceived) -> IO ResponseReceived
+handleInfo :: MVar Coffeepot -> Application
 handleInfo coffeepotVar _req respond = do
   currentPot <- readMVar coffeepotVar
   let potInfo = T.pack $ show currentPot
   respond $ responseLBS ok200 [safeHeader SafeYes] (LBS.fromStrict . TE.encodeUtf8 $ potInfo)
 
-handleTeapot :: Request -> (Response -> IO ResponseReceived) -> IO ResponseReceived
+handleTeapot :: Application
 handleTeapot _req respond = do
   respond $ responseLBS imATeapot418 [] "Hey! I'm a teapot"
