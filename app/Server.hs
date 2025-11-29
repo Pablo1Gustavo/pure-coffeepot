@@ -30,7 +30,7 @@ safeHeader safeNature =
 coffeepotErrorToResponse :: CoffeepotError -> (Status, Text)
 coffeepotErrorToResponse err = case err of
     UnsupportedAddition additionType ->
-        ( badRequest400
+        ( notAcceptable406
         , T.pack $ "Unsupported addition: " ++ show additionType
         )
     ActionNotAllowedInState state ->

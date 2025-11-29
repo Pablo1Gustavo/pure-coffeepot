@@ -12,6 +12,7 @@ Content-Type: {{contentType}}
 ### Start brewing
 POST {{baseUrl}}/pot-1
 Content-Type: {{contentType}}
+Accept-Additions: Whole-Milk
 
 start
 

@@ -49,11 +49,12 @@ handleBrew :: MVar Coffeepot -> Application
 handleBrew coffeepotVar req respond = do
   bodyLBS <- lazyRequestBody req
   let bodyText = TE.decodeUtf8 . LBS.toStrict $ bodyLBS
-      additions = maybe [] (parseAcceptAdditions . TE.decodeUtf8) $ 
-                        lookup "Accept-Additions" (requestHeaders req)
+      additionsValues = lookup "Accept-Additions" (requestHeaders req)
+      additions = maybe [] (parseAcceptAdditions . TE.decodeUtf8) additionsValues
+      actionText = T.unpack bodyText
   currentPot <- readMVar coffeepotVar
   
-  case T.unpack bodyText of
+  case actionText of
     "start" -> do
       case brewStart currentPot additions of
         Left err -> respond (errorResponse err)
