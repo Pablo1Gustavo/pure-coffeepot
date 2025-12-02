@@ -20,20 +20,10 @@ data AlcoholType
   = Whisky | Rum | Kahlua | Aquavit
   deriving (Show, Eq)
 
-data SweetenerType
-  = Sugar | Honey | Stevia | Artificial
-  deriving (Show, Eq)
-
-data SpiceType
-  = Cinnamon | Nutmeg | Clove | Cardamom
-  deriving (Show, Eq)
-
 data AdditionType
     = AddAll -- "*"
     | AddMilk MilkType
     | AddSyrup SyrupType
-    | AddSweetener SweetenerType
-    | AddSpice SpiceType
     | AddAlcohol AlcoholType
     deriving (Show, Eq)
 
@@ -74,8 +64,6 @@ additionCategory additionType =
     AddAll         -> error "AddAll has no single category"
     AddMilk _      -> Milk
     AddSyrup _     -> Syrup
-    AddSweetener _ -> Sweetener
-    AddSpice _     -> Spice
     AddAlcohol _   -> Alcohol
 
 supports :: Coffeepot -> AdditionType -> Bool

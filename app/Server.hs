@@ -71,16 +71,6 @@ parseAdditionType additionText =
         "almond"       -> Just (AddSyrup Almond)
         "raspberry"    -> Just (AddSyrup Raspberry)
         "chocolate"    -> Just (AddSyrup Chocolate)
-        -- Sweetener types
-        "sugar"        -> Just (AddSweetener Sugar)
-        "honey"        -> Just (AddSweetener Honey)
-        "stevia"       -> Just (AddSweetener Stevia)
-        "artificial"   -> Just (AddSweetener Artificial)
-        -- Spice types
-        "cinnamon"     -> Just (AddSpice Cinnamon)
-        "nutmeg"       -> Just (AddSpice Nutmeg)
-        "clove"        -> Just (AddSpice Clove)
-        "cardamom"     -> Just (AddSpice Cardamom)
         -- Alcohol types
         "whisky"       -> Just (AddAlcohol Whisky)
         "rum"          -> Just (AddAlcohol Rum)
